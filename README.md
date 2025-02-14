@@ -35,7 +35,7 @@ For reranking on DataFinder-E:
 
 python run.py --dataset Datafinder --len-seq 10 --num-seqs 10 --dropout 0.1 --beta 0.1 --temperature 0.2 --lr 1e-4 --epoch 50 --feats-type 0 --num-gnns 3 --batch-size 128 --patience 5 --num-layers 3 --eval-steps 200 --num-heads 4 --top-k 5
 
-For reranking on DataFinder-E:
+For reranking on DSEBench:
 
 python run.py --dataset FAERY --len-seq 10 --num-seqs 10  --dropout 0.1 --beta 0.1 --temperature 0.5 --lr 5e-5 --epoch 10 --feats-type 0 --mode qc --num-gnns 1 --batch-size 128 --patience 1 --num-layers 3 --eval-steps 500 --num-heads 4 --top-k 5
 
