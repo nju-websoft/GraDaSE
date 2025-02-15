@@ -19,8 +19,40 @@ code/: the code files of the implementation of GraDaSE.
 
 ## Data
 
+"data/" directory contains the information of dataset graph and data for two test collections: DataFinder-E and DSEBench.
+
+DataFinder-E and [DSEBench](https://github.com/nju-websoft/DSEBench) are test collections for Dataset Search with Examples, which is the task of reranking a list of candidate datasets based on a keyword query and target datasets. The DataFinder-E is adapted from [Datafinder](https://github.com/viswavi/datafinder). 
+
+### Graph
+
+The "./data/{test collection}/graph/" directory provides the ID and metadata of each dataset, the relationship between datasets and the relationships between datasets and tags in CSV format.
+
+### Queries
+
+The "./data/{test collection}/queries.tsv" provides the keywords queries. The first column is the id of query, and the second column is the text of query.
+
+### Pairs of (q, T)
+
+The "./data/{test collection}/pairs.json" provides the pair ID, keyword query and target datasets in JSON format. 
+
+```json
+{
+  pairID: {"query": query_id, "targets": [dataset_id, ...]}, ...
+}
+```
+
+### Train, Val and Test
+Take the "./data/{test collection}/train.json" file for example. The train.json file contains pair id and candidate datasets list in JSON format.
+
+```json
+{pair_id: {dataset_id: rel_score, ...}
+```
+
+The retrieval results of BM25 are in the "./data/{test collection}/bm25_test.json" file.
 
 ## Code
+
+"code/" directory contains the implementation of GraDaSE.
 
 ### Requirements
 Python==3.10.15
