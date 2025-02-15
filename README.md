@@ -35,7 +35,7 @@ The "./data/{test collection}/queries.tsv" provides the keywords queries. The fi
 
 The "./data/{test collection}/pairs.json" provides the pair ID, keyword query and target datasets in JSON format. 
 
-```json
+```
 {
   pairID: {"query": query_id, "targets": [dataset_id, ...]}, ...
 }
@@ -44,7 +44,7 @@ The "./data/{test collection}/pairs.json" provides the pair ID, keyword query an
 ### Train, Val and Test
 Take the "./data/{test collection}/train.json" file for example. The train.json file contains pair id and candidate datasets list in JSON format.
 
-```json
+```
 {pair_id: {dataset_id: rel_score, ...}
 ```
 
