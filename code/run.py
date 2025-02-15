@@ -15,7 +15,7 @@ import networkx as nx
 import torch.nn.functional as F
 from tqdm import tqdm
 
-from model_new import CDSearcher, myGAT
+from model_new import GraDaSE, myGAT
 from utils.data import load_data, batch_data
 from utils.pytorchtools import EarlyStopping
 from utils.graphtools import k_shortest_paths
@@ -159,15 +159,15 @@ def run_model_FAERY(args):
             with tqdm(total=len(data_list)) as pbar:
                 for d in data_list:
                     query_ids = d[1]
-                    contexts_ids = d[2]
+                    targets_ids = d[2]
                     dataset_id_pos = d[4]
                     label = d[-1]
                     cq_seqs = []
                     cd_seqs_pos = []
                     qd_seqs = []
 
-                    if dataset_id_pos not in contexts_ids:
-                        for c in contexts_ids:
+                    if dataset_id_pos not in targets_ids:
+                        for c in targets_ids:
                             paths = k_shortest_paths(nxg, dataset_id_pos, c, args.num_seqs, )
                             # print(paths)
                             cd_seqs_pos.extend(paths)
@@ -185,57 +185,44 @@ def run_model_FAERY(args):
         seqs = pickle.load(open(os.path.join(f'../data/{args.dataset}', f'seqs_v1_25.pickle'), 'rb'))
 
     print('Generating Node Sequences...')
-    zero_path_num = 0
     data_seqs = {'train': [], 'val': [], 'test': []}
     for i, data_list in enumerate([train_data, val_data, test_data]):
         print(list(data_seqs.keys())[i])
-        all_dc_seqs_pos = torch.zeros((len(data_list), args.num_seqs, args.len_seq)).long()
-        all_qc_seqs = torch.zeros((len(data_list), args.len_seq)).long()
-        # all_qc_seqs = torch.zeros((len(data_list), 20, args.len_q_seq)).long()
+        all_ct_seqs = torch.zeros((len(data_list), args.num_seqs, args.len_seq)).long()
+        all_qt_seqs = torch.zeros((len(data_list), args.len_seq)).long()
         with tqdm(total=len(data_list)) as pbar:
             for data_id, d in enumerate(data_list):
                 query_ids = d[1]
                 context_ids = d[2]
                 dataset_id_pos = d[4]
-                dc_seq_pos = all_dc_seqs_pos[data_id]
-                qc_seqs = all_qc_seqs[data_id]
-                qc_paths = seqs[i][data_id][4]
+                ct_seqs = all_ct_seqs[data_id]
+                qt_seqs = all_qt_seqs[data_id]
                 cd_paths = seqs[i][data_id][5][0]
 
                 start_nodes = [qid for qid in query_ids]
                 scnt = len(start_nodes) - 1
                 start_nodes.extend(context_ids)
-                generate_seq(g, qc_seqs, start_nodes, args.len_seq, 0, range(scnt + 1, len(start_nodes)))
+                generate_seq(g, qt_seqs, start_nodes, args.len_seq, 0, range(scnt + 1, len(start_nodes)))
 
                 j = 0
-
                 mask = 0
                 if dataset_id_pos in context_ids:
                     mask = -1
                 dc_paths = []
                 for path in cd_paths:
                     assert path[0] == dataset_id_pos
-                    # dc_paths.append(path.cpu().tolist())
                     dc_paths.append(path)
-                # while len(dc_paths) < args.num_seqs:
-                #     dc_paths.append([])
-                if len(dc_paths) == 0 and i == 0:
-                    zero_path_num += 1
                 for path in dc_paths:
                     if j >= args.num_seqs:
                         break
                     start_nodes = []
                     start_nodes.extend(path)
-                    # start_nodes.extend([dataset_id_pos])
                     scnt = len(start_nodes) - 1
-                    # start_nodes.extend(context_ids)
                     skip_idx = range(scnt + 1, len(start_nodes))
-                    generate_seq(g, dc_seq_pos[j], start_nodes, args.len_seq, scnt, skip_idx)
+                    generate_seq(g, ct_seqs[j], start_nodes, args.len_seq, scnt, skip_idx)
                     j += 1
-                # if d[0] == 'Test_10':
-                #     print(dc_seq_pos)
                 data_seqs[list(data_seqs.keys())[i]].append(
-                    [d[0], d[1], d[2], d[3], qc_seqs, dataset_id_pos, dc_seq_pos, d[5], mask, d[-1]])
+                    [d[0], d[1], d[2], d[3], qt_seqs, dataset_id_pos, ct_seqs, d[5], mask, d[-1]])
                 pbar.update(1)
     node_type = [i for i, z in zip(range(len(node_cnt)), node_cnt) for x in range(z)]
     g = g.to(device)
@@ -243,8 +230,6 @@ def run_model_FAERY(args):
     train_batches = batch_data(data_seqs['train'], args.batch_size, )
     val_batches = batch_data(data_seqs['val'], args.batch_size, )
     test_batches = batch_data(data_seqs['test'], args.batch_size, )
-    # for k in train_batches[0]:
-    #     print(k, train_batches[0][k][0])
     num_classes = 2
     type_emb = torch.eye(len(node_cnt)).to(device)
     node_type = torch.tensor(node_type).to(device)
@@ -271,7 +256,7 @@ def run_model_FAERY(args):
     for m in metrics:
         test_results[m] = torch.zeros(args.repeat)
     for i in range(args.repeat):
-        ranker = CDSearcher(g, 64, len(dl.links['count']) * 2 + 1, num_classes, in_dims, args.hidden_dim,
+        ranker = GraDaSE(g, 64, len(dl.links['count']) * 2 + 1, num_classes, in_dims, args.hidden_dim,
                             args.num_layers, args.num_gnns,
                             args.num_heads, args.dropout, temper=args.temperature, num_type=len(node_cnt),
                             beta=args.beta,
@@ -288,7 +273,7 @@ def run_model_FAERY(args):
         ranker.train()
         early_stopping = EarlyStopping(
             patience=args.patience, verbose=True,
-            save_path='checkpoint/CDSeacher_{}_{}_{}_{}_{}_{}_{}_{}_{}.pt'.format(args.dataset,
+            save_path='checkpoint/GraDaSE_{}_{}_{}_{}_{}_{}_{}_{}_{}.pt'.format(args.dataset,
                                                                                   args.num_layers,
                                                                                   args.num_gnns,
                                                                                   args.len_seq,
@@ -306,9 +291,9 @@ def run_model_FAERY(args):
                 steps += 1
                 scores = ranker(features_list,
                                 e_feat,
-                                batch['qc_seqs'], type_emb, node_type,
-                                [batch['dc_seq'], batch['mask_pos'], batch['dataset_input_ids'].to(device), ],
-                                batch['contexts']
+                                batch['qt_seq'], type_emb, node_type,
+                                [batch['ct_seqs'], batch['mask_pos'], batch['dataset_input_ids'].to(device), ],
+                                batch['targets']
                                 )
                 batch['labels'] = torch.tensor(batch['labels'], dtype=torch.float).to(device)
                 train_loss = criterion(scores, batch['labels'])
@@ -324,7 +309,6 @@ def run_model_FAERY(args):
             # validation
             ranker.eval()
             print("*****************Eval*****************")
-            print(args)
             qrels, run = {}, {}
             with open(f'../data/{args.dataset}/val.json', 'r') as f:
                 qrels = json.load(f)
@@ -333,14 +317,14 @@ def run_model_FAERY(args):
                 for val_batch in val_batches:
                     scores = ranker(features_list,
                                     e_feat,
-                                    val_batch['qc_seqs'], type_emb, node_type,
-                                    [val_batch['dc_seq'], val_batch['mask_pos'],
+                                    val_batch['qt_seq'], type_emb, node_type,
+                                    [val_batch['ct_seqs'], val_batch['mask_pos'],
                                      val_batch['dataset_input_ids'].to(device), ],
-                                    val_batch['contexts']
+                                    val_batch['targets']
                                     )
                     val_batch['labels'] = torch.tensor(val_batch['labels'], dtype=torch.float).to(device)
                     val_loss += criterion(scores, val_batch['labels']).item()
-                    for id_ in range(len(val_batch['qc_seqs'])):
+                    for id_ in range(len(val_batch['qt_seq'])):
                         if val_batch['pair_id'][id_] not in run.keys():
                             run[val_batch['pair_id'][id_]] = {}
                         dataset_id_pos = val_batch['dataset'][id_]
@@ -351,7 +335,6 @@ def run_model_FAERY(args):
                 print(eval_result)
 
             scheduler.step(val_loss)
-            print(scheduler.get_last_lr())
             t_end = time.time()
             # print validation info
             print('Epoch {:05d} | Val_Loss {:.4f} | Time(s) {:.4f}'.format(
@@ -365,7 +348,7 @@ def run_model_FAERY(args):
 
         # testing with evaluate_results_nc
         ranker.load_state_dict(torch.load(
-            'checkpoint/CDSeacher_{}_{}_{}_{}_{}_{}_{}_{}_{}.pt'.format(args.dataset, args.num_layers, args.num_gnns,
+            'checkpoint/GraDaSE_{}_{}_{}_{}_{}_{}_{}_{}_{}.pt'.format(args.dataset, args.num_layers, args.num_gnns,
                                                                      args.len_seq, args.lr, args.batch_size,
                                                                      args.num_seqs, args.top_k, i)))
         ranker.eval()
@@ -378,12 +361,12 @@ def run_model_FAERY(args):
             for batch in test_batches:
                 scores = ranker(features_list,
                                 e_feat,
-                                batch['qc_seqs'], type_emb, node_type,
-                                [batch['dc_seq'], batch['mask_pos'], batch['dataset_input_ids'].to(device), ],
-                                batch['contexts']
+                                batch['qt_seq'], type_emb, node_type,
+                                [batch['ct_seqs'], batch['mask_pos'], batch['dataset_input_ids'].to(device), ],
+                                batch['targets']
                                 )
 
-                for id_ in range(len(batch['qc_seqs'])):
+                for id_ in range(len(batch['qt_seq'])):
                     if batch['pair_id'][id_] not in run.keys():
                         run[batch['pair_id'][id_]] = {}
                     dataset_id = batch['dataset'][id_]
@@ -412,7 +395,7 @@ def run_model_FAERY(args):
 
 if __name__ == '__main__':
     ap = argparse.ArgumentParser(
-        description='CDSearcher')
+        description='GraDaSE')
     ap.add_argument('--feats-type', type=int, default=3,
                     help='Type of the node features used. ' +
                          '0 - loaded features; ' +
@@ -438,7 +421,7 @@ if __name__ == '__main__':
     ap.add_argument('--seed', type=int, default=2025)
     ap.add_argument('--scope', type=str, default="origin")
     ap.add_argument('--batch-size', type=int, default=128)
-    ap.add_argument('--top-k', type=int, default=20)
+    ap.add_argument('--top-k', type=int, default=5)
     ap.add_argument('--retrieve-num', type=int, default=100)
     ap.add_argument('--eval-steps', type=int, default=500)
     ap.add_argument('--dropout', type=float, default=0.5)

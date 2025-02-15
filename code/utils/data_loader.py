@@ -213,7 +213,6 @@ class data_loader:
             qrels, metrics)
         eval_results = evaluator.evaluate(preds)
         results = {}
-        avg_map_5, avg_ndcg_5, avg_p_5, avg_r_5, avg_map_10, avg_ndcg_10, avg_p_10, avg_r_10 = 0, 0, 0, 0, 0, 0, 0, 0
         for metric in metrics:
             results[metric] = sum([x[metric] for x in eval_results.values()]) / len(eval_results)
         return results
@@ -227,7 +226,6 @@ class data_loader:
                     th[0] = eval(th[0])
                 queries['map'][th[0]] = th[1].strip()
                 queries['word_ids'][th[0]] = self.process_text(th[1].strip(), 256)
-        # print(queries['words_ids'][1])
         return queries
 
     def load_pairs(self, name):
@@ -247,7 +245,6 @@ class data_loader:
         labels = {'total': 0, 'data': {}, 'pair_info': {}}
         with open(os.path.join(self.path, name), "r") as f:
             json_data = json.load(f)
-        query_node_avg = 0
         bm25_results, bge_input, query_nodes = [], [], {}
         temp_num = 0
         datatype = name.replace('.json', "")
@@ -257,42 +254,30 @@ class data_loader:
             with tqdm(total=len(json_data)) as pbar:
                 for k, v in json_data.items():
                     temp_num += 1
-                    # if temp_num > 1000:
-                    #     break
                     pair_id = k
                     query_id = self.pairs[pair_id]['query']
                     query_keywords = self.queries['map'][query_id]
-                    # print(query_keywords)
                     tokenized_query = query_keywords.lower().split()
                     entity_scores = self.bm25.get_scores(tokenized_query)
                     combined_list = list(zip(entity_scores, [i for i in range(len(self.corpus))]))
                     sorted_combined_list = sorted(combined_list, key=lambda x: x[0], reverse=True)[:self.bm25_num]
                     new_corpus = []
-                    # print(sorted_combined_list)
                     for s, id_ in sorted_combined_list:
                         new_corpus.append(self.corpus[id_])
                     zipped_retrieval_result = list(zip([query_keywords] * len(sorted_combined_list), new_corpus))
-                    # print(zipped_retrieval_result)
                     bm25_results.append(sorted_combined_list)
                     bge_input.extend(zipped_retrieval_result)
                     pbar.update(1)
-            # print(len(bge_input))
             scores = self.reranker.compute_score(bge_input, normalize=True)
-            # print(len(scores))
             temp_num = 0
             for i, k in enumerate(list(json_data.keys())):
                 temp_num += 1
-                # if temp_num > 1000:
-                #     break
                 rerank_result = list(zip([i for i in range(len(bm25_results[i]))], scores[i:i + len(bm25_results[i])]))
                 sorted_rerank_result = sorted(rerank_result, key=lambda x: x[1], reverse=True)[:self.top_k]
-                # print(sorted_rerank_result)
                 query_node_ids = []
                 for r in sorted_rerank_result:
-                    # if bm25_results[i][r[0]][1] < 46615:
                     query_node_ids.append(bm25_results[i][r[0]][1])
                 query_nodes[k] = query_node_ids
-                # query_nodes[k] = []
             with open(os.path.join(self.path, f'query_nodes_{self.bm25_num}_{self.top_k}_{datatype}.json'), "w") as f:
                 json.dump(query_nodes, f)
 
@@ -300,14 +285,12 @@ class data_loader:
         with tqdm(total=len(json_data)) as pbar:
             for k, v in json_data.items():
                 temp_num += 1
-                # if temp_num > 30:
-                #     break
                 pair_id = k
                 query_id = self.pairs[pair_id]['query']
-                context_ids = self.pairs[pair_id]['contexts']
+                context_ids = self.pairs[pair_id]['targets']
                 query_node_ids = query_nodes[k]
                 labels['pair_info'][pair_id] = {'query_node_ids': sorted(query_node_ids),
-                                                'contexts': sorted(context_ids),
+                                                'targets': sorted(context_ids),
                                                 'query_ori_id': query_id,
                                                 'qc_input_ids': self.process_text(
                                                     self.queries['map'][query_id] + "\n" +
@@ -315,7 +298,6 @@ class data_loader:
 
                 if 'test' in name:
                     for dataset_node, rel in v.items():
-                        # rel = v[dataset_node]
                         if pair_id not in labels['data'].keys():
                             labels['data'][pair_id] = {}
                         if self.mode == 'qc':
@@ -326,10 +308,6 @@ class data_loader:
                                                                          512)
                             labels['data'][pair_id][dataset_node] = {"rel": rel, "input_ids": input_ids}
                         else:
-                            # for c in context_ids:
-                            #     input_ids = self.process_text(self.queries['map'][query_id] + "[SEP]" + self.corpus[c], 512)
-                            #     labels['data'][pair_id][str(c)] = {"rel": 1, "input_ids": input_ids}
-                            # print(self.nodes['count'][0])
                             for d in range(self.nodes['count'][0]):
                                 input_ids = self.process_text(self.queries['map'][query_id] + "[SEP]" + self.corpus[d], 512)
                                 labels['data'][pair_id][d] = {"rel": rel, "input_ids": input_ids}
@@ -360,7 +338,6 @@ class data_loader:
 
                 labels['total'] += len(json_data)
                 pbar.update(1)
-        # print('avg: ', query_node_avg / temp_num)
         return labels
 
     def get_node_type(self, node_id):
@@ -414,16 +391,6 @@ class data_loader:
                 th = line.split('\t')
                 h_id, t_id, r_id, link_weight = int(th[0]), int(th[1]), int(th[2]), float(th[3])
                 var = random.randint(0, 9)
-                # if self.get_node_type(h_id) == 1 and node_degree[h_id] < 200 and "FAERY" in self.path:
-                #     continue
-                # if self.get_node_type(t_id) == 1 and node_degree[t_id] < 200 and "FAERY" in self.path:
-                #     continue
-                # if self.get_node_type(h_id) == 0 and node_degree[h_id] < 10 and "FAERY" in self.path:
-                #     continue
-                # if self.get_node_type(t_id) == 0 and node_degree[t_id] < 10 and "FAERY" in self.path:
-                #     continue
-                # if r_id in [6, 7] and r_id in links['meta'] and var != 0:
-                #     continue
                 if r_id not in links['meta']:
                     h_type = self.get_node_type(h_id)
                     t_type = self.get_node_type(t_id)
@@ -444,7 +411,6 @@ class data_loader:
         corpus, processed_corpus = [], {}
         for k, v in json_data.items():
             corpus.append(v)
-            # processed_corpus[k] = {'text': v, 'input_id'}
         tokenized_corpus = [doc.split(" ") for doc in corpus]
         self.bm25 = BM25Okapi(tokenized_corpus)
         return corpus
@@ -467,8 +433,6 @@ class data_loader:
                     node_id, node_name, node_type, node_attr = th
                     node_id = int(node_id)
                     node_type = int(node_type)
-                    # if node_type == 1 and "FAERY" in self.path:
-                    #     continue
                     nodes['type'][node_id] = node_type
                     node_attr = list(map(float, node_attr.split(',')))
                     nodes['count'][node_type] += 1
@@ -498,7 +462,6 @@ class data_loader:
                 attr[i] = None
             shift += nodes['count'][i]
         nodes['attr'] = attr
-        # print(self.dataset_input_ids[0])
         return nodes
 
     def process_text(self, text, max_length):

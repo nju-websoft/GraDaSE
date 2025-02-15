@@ -156,71 +156,15 @@ class AGTLayer(nn.Module):
         score = score / self.temper
 
         score = F.softmax(score, dim=-1)
-        # print(score.shape)
         score = self.dropout1(score)
 
         context = score @ fr
-        # print(context.shape)
         h_sa = context.transpose(1, 2).reshape(batch_size, -1, self.head_dim * self.nheads)
         fh = self.linear_final(h_sa)
         fh = self.dropout2(fh)
-        # print(h.shape, fh.shape)
         h = self.LN(h + fh)
 
         return h
-
-
-class QATLayer(nn.Module):  # Query Self Attention
-    def __init__(self, num_attention_heads, input_size, hidden_size, att_dropout_prob, hidden_dropout_prob):
-        super(QATLayer, self).__init__()
-        if hidden_size % num_attention_heads != 0:
-            raise ValueError(
-                "The hidden size (%d) is not a multiple of the number of attention "
-                "heads (%d)" % (hidden_size, num_attention_heads))
-        self.num_attention_heads = num_attention_heads
-        self.attention_head_size = int(hidden_size / num_attention_heads)
-        self.all_head_size = hidden_size
-
-        self.query = nn.Linear(input_size, self.all_head_size)
-        self.key = nn.Linear(input_size, self.all_head_size)
-        self.value = nn.Linear(input_size, self.all_head_size)
-
-        self.attn_dropout = nn.Dropout(att_dropout_prob)
-
-        # 做完self-attention 做一个前馈全连接 LayerNorm 输出
-        self.dense = nn.Linear(hidden_size, hidden_size)
-        self.LayerNorm = nn.LayerNorm(hidden_size)
-        self.out_dropout = nn.Dropout(hidden_dropout_prob)
-
-    def transpose_for_scores(self, x):
-        new_x_shape = x.size()[:-1] + (self.num_attention_heads, self.attention_head_size)
-        x = x.view(*new_x_shape)
-        return x.permute(0, 2, 1, 3)
-
-    def forward(self, input_tensor):
-        mixed_query_layer = self.query(input_tensor)
-        mixed_key_layer = self.key(input_tensor)
-        mixed_value_layer = self.value(input_tensor)
-
-        query_layer = self.transpose_for_scores(mixed_query_layer)
-        key_layer = self.transpose_for_scores(mixed_key_layer)
-        value_layer = self.transpose_for_scores(mixed_value_layer)
-
-        attention_scores = torch.matmul(query_layer, key_layer.transpose(-1, -2))
-
-        attention_scores = attention_scores / math.sqrt(self.attention_head_size)
-
-        attention_probs = nn.Softmax(dim=-1)(attention_scores)
-        attention_probs = self.attn_dropout(attention_probs)
-        context_layer = torch.matmul(attention_probs, value_layer)
-        context_layer = context_layer.permute(0, 2, 1, 3).contiguous()
-        new_context_layer_shape = context_layer.size()[:-2] + (self.all_head_size,)
-        context_layer = context_layer.view(*new_context_layer_shape)
-        hidden_states = self.dense(context_layer)
-        hidden_states = self.out_dropout(hidden_states)
-        hidden_states = self.LayerNorm(hidden_states + input_tensor)
-
-        return hidden_states
 
 
 class PositionalEncoding(nn.Module):
@@ -236,7 +180,6 @@ class PositionalEncoding(nn.Module):
 
     def forward(self, enc_inputs):
         return self.pos_table[:enc_inputs.size(1), :]
-        # return self.dropout(enc_inputs.cuda())
 
 
 class myGATConv(nn.Module):
@@ -425,12 +368,12 @@ class myGAT(nn.Module):
         return h
 
 
-class CDSearcher(nn.Module):
+class GraDaSE(nn.Module):
     def __init__(self, g, edge_dim, num_etypes, num_class, input_dimensions, embeddings_dimension=64, num_layers=8,
                  num_gnns=2, nheads=2,
                  dropout=0, temper=1.0, num_type=4, beta=1, top_k=5, num_seqs=15):
 
-        super(CDSearcher, self).__init__()
+        super(GraDaSE, self).__init__()
 
         self.g = g
         self.embeddings_dimension = embeddings_dimension
@@ -444,10 +387,8 @@ class CDSearcher(nn.Module):
         self.RELayers = torch.nn.ModuleList()
         self.QGTLayers = torch.nn.ModuleList()
         self.DGTLayers = torch.nn.ModuleList()
-        # self.attr_drop = 0.2
         for layer in range(self.num_gnns * 2):
-            # self.GCNLayers.append(GraphConv(
-            #     self.embeddings_dimension, self.embeddings_dimension, activation=F.relu, allow_zero_in_degree=True))
+
             self.RELayers.append(REConv(num_type, num_type, activation=F.relu, num_type=num_type))
         heads = [2] * num_gnns + [1]
         self.GCNLayers = myGAT(self.g, edge_dim, num_etypes, input_dimensions, embeddings_dimension, num_gnns,
@@ -462,6 +403,7 @@ class CDSearcher(nn.Module):
                          rl_dim=num_type, beta=beta))
         self.PositionLayer = PositionalEncoding(embeddings_dimension)
         self.Drop = nn.Dropout(self.dropout)
+
         self.GraphFn = nn.Sequential(
             nn.Linear(embeddings_dimension * 3, embeddings_dimension, bias=True),
             nn.LeakyReLU(0.1),
@@ -480,48 +422,48 @@ class CDSearcher(nn.Module):
         self.top_k = top_k
         self.epsilon = torch.FloatTensor([1e-12]).cuda()
         self.Scores = nn.Sequential(
-            nn.Linear(embeddings_dimension + 10 + embeddings_dimension + 1, embeddings_dimension, bias=True),
+            nn.Linear(embeddings_dimension + top_k + embeddings_dimension + 1, embeddings_dimension, bias=True),
             nn.LeakyReLU(0.1),
             nn.Linear(embeddings_dimension, 1, bias=True),
         )
 
-    def forward(self, features_list, e_feat, qc_seqs, type_emb, node_type, dataset, contexts):
-        dc_seqs, mask, dataset_word_ids = dataset
+    def forward(self, features_list, e_feat, s_qt, type_emb, node_type, dataset, contexts):
+        s_ct, mask, dataset_word_ids = dataset
         h = []
         for fc, feature in zip(self.fc_list, features_list):
             h.append(fc(feature))
         h = torch.cat(h, 0)
         r = type_emb[node_type]
         gh = self.GCNLayers(features_list, e_feat)
-        qt = h[qc_seqs].max(dim=1).values
-        dt = h[dc_seqs[:, 0]].max(dim=1).values
-        ct_batch = []
+        qt = h[s_qt][:, :self.top_k, :].max(dim=1).values
+        dt = h[s_ct[:, 0]].max(dim=1).values
+        tt_batch = []
         for context_id in contexts:
-            ch = h[torch.tensor(context_id).cuda()]
-            ch = torch.unsqueeze(ch.max(dim=0).values, 0)
-            ct_batch.append(ch)
-        ct = torch.cat(ct_batch, 0)
-        qdt = self.TextFn(torch.cat([qt, ct, dt], dim=-1))
+            th = h[torch.tensor(context_id).cuda()]
+            th = torch.unsqueeze(th.max(dim=0).values, 0)
+            tt_batch.append(th)
+        tt = torch.cat(tt_batch, 0)
+        qdt = self.TextFn(torch.cat([qt, tt, dt], dim=-1))
         qt = qt.unsqueeze(1)
         dt = dt.unsqueeze(1)
         text_score = torch.matmul(qt, dt.transpose(1, 2)).squeeze(dim=-1)
         for layer in range(self.num_gnns * 2):
             r = self.RELayers[layer](self.g, r, node_type)
-        qh = gh[qc_seqs]
-        qr = r[qc_seqs]
+        qh = gh[s_qt]
+        qr = r[s_qt]
         for layer in range(self.num_layers):
             qh = self.QGTLayers[layer](qh, rh=qr)
-        # qh = qh[:, :, :]
+        qh = qh[:, :self.top_k, :]
 
-        ch_batch = []
+        th_batch = []
         for context_id in contexts:
-            ch = gh[torch.tensor(context_id).cuda()]
-            ch = torch.unsqueeze(ch.max(dim=0).values, 0)
-            ch_batch.append(ch)
-        ch = torch.cat(ch_batch, 0)
-        dc_seqs = torch.LongTensor(np.array(dc_seqs))
-        dh = gh[dc_seqs]
-        dr = r[dc_seqs]
+            th = gh[torch.tensor(context_id).cuda()]
+            th = torch.unsqueeze(th.max(dim=0).values, 0)
+            th_batch.append(th)
+        th = torch.cat(th_batch, 0)
+        s_ct = torch.LongTensor(np.array(s_ct))
+        dh = gh[s_ct]
+        dr = r[s_ct]
         dh_batch = []
         for s in range(dh.shape[1]):
             new_dh = dh[:, s, :, :]
@@ -531,7 +473,8 @@ class CDSearcher(nn.Module):
                 new_dh = self.DGTLayers[layer](new_dh, rh=new_dr)
             dh_batch.append(new_dh[:, 0, :].unsqueeze(1))
         dh = torch.cat(dh_batch, dim=1)
-        qdh = self.GraphFn(torch.cat([qh.max(dim=1).values, ch, dh.max(dim=1).values], dim=-1))
+
+        qdh = self.GraphFn(torch.cat([qh.max(dim=1).values, th, dh.max(dim=1).values], dim=-1))
         dh = dh.transpose(1, 2)
         graph_scores = torch.matmul(qh, dh)
         graph_scores = self.WeightScore1(graph_scores)
