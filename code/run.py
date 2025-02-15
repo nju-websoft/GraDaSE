@@ -54,7 +54,6 @@ def list_to_sp_mat(node_num, li):
 
 def generate_seq(graph, empty_seq, start_ids, seq_len, start_scnt, skip_idx):
     cnt, scnt = 0, 0
-    # print('Start: ', start_ids)
     for c in start_ids:
         empty_seq[cnt] = c
         cnt += 1
@@ -96,7 +95,6 @@ def run_model_FAERY(args):
     features_list, adjM, train_val_test, dl = load_data(args.dataset, args)
     device = torch.device('cuda:' + str(args.device)
                           if torch.cuda.is_available() else 'cpu')
-    print(device)
     features_list = [mat2tensor(features).to(device)
                      for features in features_list]
     node_cnt = [features.shape[0] for features in features_list]
@@ -138,18 +136,12 @@ def run_model_FAERY(args):
             features_list[i] = torch.sparse.FloatTensor(
                 indices, values, torch.Size([dim, dim])).to(device)
     train_data = train_val_test['train']
-    print(train_data[0])
-    print("****************************")
     val_data = train_val_test['val']
     test_data = train_val_test['test']
-    # g = dgl.DGLGraph(adjM + adjM.T)
     g = dgl.DGLGraph(adjM)
-    # g = dgl.add_self_loop(g)
     g = dgl.remove_self_loop(g)
-    print(g.edges()[0].shape)
     nxg = nx_graph(dl)
     d = dict(nx.degree(nxg))
-    print("Average Degree为：", sum(d.values()) / len(nxg.nodes))
 
     seqs = [[], [], []]
     if not os.path.exists(os.path.join(f'../data/{args.dataset}', f'seqs_v1_25.pickle')):
@@ -178,7 +170,6 @@ def run_model_FAERY(args):
 
                     seqs[i].append([d[0], d[1], d[2], d[3], cq_seqs, [cd_seqs_pos, qd_seqs], label])
                     pbar.update(1)
-            print(avg_len_cd/num_cd)
         with open(os.path.join(f'../data/{args.dataset}', f'seqs_v1_25.pickle'), 'wb') as f:
             pickle.dump(seqs, f)
     else:
@@ -188,7 +179,6 @@ def run_model_FAERY(args):
     zero_path_num = 0
     data_seqs = {'train': [], 'val': [], 'test': []}
     for i, data_list in enumerate([train_data, val_data, test_data]):
-        print(list(data_seqs.keys())[i])
         all_dc_seqs_pos = torch.zeros((len(data_list), args.num_seqs, args.len_seq)).long()
         all_qc_seqs = torch.zeros((len(data_list), args.len_seq)).long()
         # all_qc_seqs = torch.zeros((len(data_list), 20, args.len_q_seq)).long()
@@ -215,10 +205,7 @@ def run_model_FAERY(args):
                 dc_paths = []
                 for path in cd_paths:
                     assert path[0] == dataset_id_pos
-                    # dc_paths.append(path.cpu().tolist())
                     dc_paths.append(path)
-                # while len(dc_paths) < args.num_seqs:
-                #     dc_paths.append([])
                 if len(dc_paths) == 0 and i == 0:
                     zero_path_num += 1
                 for path in dc_paths:
@@ -226,14 +213,10 @@ def run_model_FAERY(args):
                         break
                     start_nodes = []
                     start_nodes.extend(path)
-                    # start_nodes.extend([dataset_id_pos])
                     scnt = len(start_nodes) - 1
-                    # start_nodes.extend(context_ids)
                     skip_idx = range(scnt + 1, len(start_nodes))
                     generate_seq(g, dc_seq_pos[j], start_nodes, args.len_seq, scnt, skip_idx)
                     j += 1
-                # if d[0] == 'Test_10':
-                #     print(dc_seq_pos)
                 data_seqs[list(data_seqs.keys())[i]].append(
                     [d[0], d[1], d[2], d[3], qc_seqs, dataset_id_pos, dc_seq_pos, d[5], mask, d[-1]])
                 pbar.update(1)
@@ -243,8 +226,6 @@ def run_model_FAERY(args):
     train_batches = batch_data(data_seqs['train'], args.batch_size, )
     val_batches = batch_data(data_seqs['val'], args.batch_size, )
     test_batches = batch_data(data_seqs['test'], args.batch_size, )
-    # for k in train_batches[0]:
-    #     print(k, train_batches[0][k][0])
     num_classes = 2
     type_emb = torch.eye(len(node_cnt)).to(device)
     node_type = torch.tensor(node_type).to(device)
@@ -324,7 +305,6 @@ def run_model_FAERY(args):
             # validation
             ranker.eval()
             print("*****************Eval*****************")
-            print(args)
             qrels, run = {}, {}
             with open(f'../data/{args.dataset}/val.json', 'r') as f:
                 qrels = json.load(f)
@@ -351,7 +331,6 @@ def run_model_FAERY(args):
                 print(eval_result)
 
             scheduler.step(val_loss)
-            print(scheduler.get_last_lr())
             t_end = time.time()
             # print validation info
             print('Epoch {:05d} | Val_Loss {:.4f} | Time(s) {:.4f}'.format(
