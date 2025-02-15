@@ -391,10 +391,7 @@ class CDSearcher(nn.Module):
         self.RELayers = torch.nn.ModuleList()
         self.QGTLayers = torch.nn.ModuleList()
         self.DGTLayers = torch.nn.ModuleList()
-        # self.attr_drop = 0.2
         for layer in range(self.num_gnns * 2):
-            # self.GCNLayers.append(GraphConv(
-            #     self.embeddings_dimension, self.embeddings_dimension, activation=F.relu, allow_zero_in_degree=True))
             self.RELayers.append(REConv(num_type, num_type, activation=F.relu, num_type=num_type))
         heads = [2] * num_gnns + [1]
         self.GCNLayers = myGAT(self.g, edge_dim, num_etypes, input_dimensions, embeddings_dimension, num_gnns,
