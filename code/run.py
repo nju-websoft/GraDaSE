@@ -73,20 +73,6 @@ def nx_graph(loader):
     G.add_edges_from(all_links)
     return G
 
-metadata = {}
-metadata_df = pd.read_csv('../data/Datafinder/graph/datafinder_dataset_metadata.csv', na_filter=False)
-for d in metadata_df.itertuples():
-    metadata[d.id] = d.title
-
-tags = {}
-tags_df = pd.read_csv('../data/Datafinder/graph/datafinder_tags.csv', na_filter=False)
-for d in tags_df.itertuples():
-    tags[d.id] = d.tag
-
-# pairs = {}
-with open('../data/Datafinder/pairs.json', 'r') as f:
-    pairs = json.load(f)
-
 
 def run_model_FAERY(args):
     if not os.path.exists('checkpoint/'):
