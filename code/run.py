@@ -124,18 +124,13 @@ def run_model_FAERY(args):
             features_list[i] = torch.sparse.FloatTensor(
                 indices, values, torch.Size([dim, dim])).to(device)
     train_data = train_val_test['train']
-    print(train_data[0])
-    print("****************************")
+
     val_data = train_val_test['val']
     test_data = train_val_test['test']
-    # g = dgl.DGLGraph(adjM + adjM.T)
     g = dgl.DGLGraph(adjM)
-    # g = dgl.add_self_loop(g)
     g = dgl.remove_self_loop(g)
-    print(g.edges()[0].shape)
     nxg = nx_graph(dl)
     d = dict(nx.degree(nxg))
-    print("Average Degree为：", sum(d.values()) / len(nxg.nodes))
 
     seqs = [[], [], []]
     if not os.path.exists(os.path.join(f'../data/{args.dataset}', f'seqs_v1_25.pickle')):
@@ -173,7 +168,6 @@ def run_model_FAERY(args):
     print('Generating Node Sequences...')
     data_seqs = {'train': [], 'val': [], 'test': []}
     for i, data_list in enumerate([train_data, val_data, test_data]):
-        print(list(data_seqs.keys())[i])
         all_ct_seqs = torch.zeros((len(data_list), args.num_seqs, args.len_seq)).long()
         all_qt_seqs = torch.zeros((len(data_list), args.len_seq)).long()
         with tqdm(total=len(data_list)) as pbar:
