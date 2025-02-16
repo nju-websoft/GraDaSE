@@ -144,7 +144,6 @@ def generate_FAERY_data_dat(ori_train_file, ori_val_file, ori_test_file, pairs_d
     # print(ntcir_id_map)
     train_data, val_data, test_data, pairs = {}, {}, {}, {}
     for i, datalist in enumerate([ori_train_list, ori_val_list, ori_test_list]):
-        print(len(datalist))
         for record in datalist:
             pair_id = record['qdpair_id']
             query_id = record['query_id']
@@ -179,11 +178,11 @@ def generate_FAERY_data_dat(ori_train_file, ori_val_file, ori_test_file, pairs_d
         raw_data['val'][pair_id] = candidate_lists
     for pair_id, candidate_lists in test_data.items():
         raw_data['test'][pair_id] = candidate_lists
-    with open(os.path.join('../../data/' + 'FAERY', 'train.json'), 'w') as f:
+    with open(os.path.join('../../data/' + 'DSEBench', 'train.json'), 'w') as f:
         json.dump(raw_data['train'], f)
-    with open(os.path.join('../../data/' + 'FAERY', 'val.json'), 'w') as f:
+    with open(os.path.join('../../data/' + 'DSEBench', 'val.json'), 'w') as f:
         json.dump(raw_data['val'], f)
-    with open(os.path.join('../../data/' + 'FAERY', 'test.json'), 'w') as f:
+    with open(os.path.join('../../data/' + 'DSEBench', 'test.json'), 'w') as f:
         json.dump(raw_data['test'], f)
     with open(pairs_dat, 'w') as f:
         json.dump(pairs, f)
@@ -297,40 +296,11 @@ def process_faery_bm25_result(bm25_result_file, metadata_file, outfile):
 
 
 if __name__ == '__main__':
-    generate_node_dat('../../data/FAERY/graph/faery_dataset_metadata.csv',
-                      '../../data/FAERY/graph/faery_tags.csv',
-                      '../../data/FAERY/node.dat',
-                      '../../data/FAERY/corpus.json')
-    generate_link_dat('../../data/FAERY/graph/faery_dataset_dataset_rel_v2.csv',
-                      '../../data/FAERY/graph/faery_dataset_tag_rel.csv',
-                      '../../data/FAERY/link_v2.dat')
-    # # generate_query_dat('../../data/FAERY/faery_keywords.csv', '../../data/FAERY/queries.dat')
-    # # generate_data_dat('../../data/FAERY/graph/faery_annotation_train.csv',
-    # #                   '../../data/FAERY/graph/faery_annotation_test.csv',
-    # #                   '../../data/FAERY/ori_train.json',
-    # #                   '../../data/FAERY/ori_test.json',
-    # #                   '../../data/FAERY/pairs.json',
-    # #                   'FAERY')
-    # generate_FAERY_data_dat('../../data/FAERY/ori_train.json',
-    #                         '../../data/FAERY/ori_valid.json',
-    #                         '../../data/FAERY/ori_test.json',
-    #                         '../../data/FAERY/pairs.json')
-    # generate_query_dat('../../data/Datafinder/graph/datafinder_keywords.csv', '../../data/Datafinder/queries.tsv')
-    # generate_node_dat('../../data/Datafinder/graph/datafinder_dataset_metadata.csv',
-    #                   '../../data/Datafinder/graph/datafinder_tags.csv',
-    #                   '../../data/Datafinder/node.dat',
-    #                   '../../data/Datafinder/corpus.json')
-    # generate_link_dat('../../data/Datafinder/graph/datafinder_dataset_dataset_rel.csv',
-    #                   '../../data/Datafinder/graph/datafinder_dataset_tag_rel.csv',
-    #                   '../../data/Datafinder/link.dat')
-    # generate_data_dat('../../data/Datafinder/graph/datafinder_annotation_train.csv',
-    #                   '../../data/Datafinder/graph/datafinder_annotation_test.csv',
-    #                   '../../data/Datafinder/ori_train.json',
-    #                   '../../data/Datafinder/ori_test.json',
-    #                   '../../data/Datafinder/pairs.json',
-    #                   'Datafinder')
-    # get_bm25_test('../../bm25/bm25_result/bm25_Datafinder_candidates.json', '../../data/Datafinder/bm25_test.json')
-    # get_bm25_test('../../bm25_result/bm25_FAERY_candidates.json', '../../data/FAERY/bm25_test.json')
-    # process_faery_bm25_result('../../data/FAERY/BM25_results.json',
-    #                           '../../data/FAERY/graph/faery_dataset_metadata.csv',
-    #                           '../../data/FAERY/BM25_faery_test.json')
+    generate_node_dat('../../data/DSEBench/graph/faery_dataset_metadata.csv',
+                      '../../data/DSEBench/graph/faery_tags.csv',
+                      '../../data/DSEBench/node.dat',
+                      '../../data/DSEBench/corpus.json')
+    generate_link_dat('../../data/DSEBench/graph/faery_dataset_dataset_rel.csv',
+                      '../../data/DSEBench/graph/faery_dataset_tag_rel.csv',
+                      '../../data/DSEBench/link.dat')
+
