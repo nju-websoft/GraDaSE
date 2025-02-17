@@ -15,7 +15,7 @@ import networkx as nx
 import torch.nn.functional as F
 from tqdm import tqdm
 
-from model_new import GraDaSE, myGAT
+from model import GraDaSE, myGAT
 from utils.data import load_data, batch_data
 from utils.pytorchtools import EarlyStopping
 from utils.graphtools import k_shortest_paths
@@ -77,7 +77,8 @@ def nx_graph(loader):
 def run_model_FAERY(args):
     if not os.path.exists('checkpoint/'):
         os.makedirs('checkpoint/')
-
+    if not os.path.exists('result/'):
+        os.makedirs('result/')
     feats_type = args.feats_type
     features_list, adjM, train_val_test, dl = load_data(args.dataset, args)
     device = torch.device('cuda:' + str(args.device)
@@ -385,7 +386,6 @@ if __name__ == '__main__':
                          '4 - only term features (id vec for others);' +
                          '5 - only term features (zero vec for others).')
     ap.add_argument('--device', type=int, default=0)
-    ap.add_argument('--mode', type=str, default="qc")
     ap.add_argument('--hidden-dim', type=int, default=256,
                     help='Dimension of the node hidden state. Default is 32.')
     ap.add_argument('--dataset', type=str, default='DBLP', help='DBLP, IMDB, Freebase, AMiner, DBLP-HGB, IMDB-HGB')

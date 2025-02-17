@@ -29,12 +29,11 @@ class bcolors:
 class data_loader:
     def __init__(self, path, args):
         self.path = path
-        self.mode = args.mode
         self.bm25 = None
         self.bm25_num = args.retrieve_num
         self.top_k = args.top_k
-        self.tokenizer = AutoTokenizer.from_pretrained("/data1/PTLM/bert-base-uncased", use_fast=True)
-        self.reranker = FlagReranker('../../datasets/model/bge-reranker-v2-m3', use_fp16=True)
+        self.tokenizer = AutoTokenizer.from_pretrained("bert-base-uncased", use_fast=True)
+        self.reranker = FlagReranker('BAAI/bge-reranker-v2-m3', use_fp16=True)
         self.dataset_input_ids = {}
         self.corpus = self.load_corpus('corpus.json')
         self.queries = self.load_keywords('queries.tsv')
@@ -256,7 +255,7 @@ class data_loader:
                     temp_num += 1
                     pair_id = k
                     query_id = self.pairs[pair_id]['query']
-                    query_keywords = self.queries['map'][query_id]
+                    query_keywords = self.queries['map'][str(query_id)]
                     tokenized_query = query_keywords.lower().split()
                     entity_scores = self.bm25.get_scores(tokenized_query)
                     combined_list = list(zip(entity_scores, [i for i in range(len(self.corpus))]))
@@ -293,24 +292,19 @@ class data_loader:
                                                 'targets': sorted(context_ids),
                                                 'query_ori_id': query_id,
                                                 'qc_input_ids': self.process_text(
-                                                    self.queries['map'][query_id] + "\n" +
+                                                    self.queries['map'][str(query_id)] + "\n" +
                                                     "\n".join([self.corpus[cid] for cid in context_ids]), 256)}
 
                 if 'test' in name:
                     for dataset_node, rel in v.items():
                         if pair_id not in labels['data'].keys():
                             labels['data'][pair_id] = {}
-                        if self.mode == 'qc':
-                            input_ids = self.process_text(self.queries['map'][query_id] + "\n" +
-                                                                         "\n".join(
-                                                                             [self.corpus[cid] for cid in context_ids]) +
-                                                                         "[SEP]" + self.corpus[eval(dataset_node)],
-                                                                         512)
-                            labels['data'][pair_id][dataset_node] = {"rel": rel, "input_ids": input_ids}
-                        else:
-                            for d in range(self.nodes['count'][0]):
-                                input_ids = self.process_text(self.queries['map'][query_id] + "[SEP]" + self.corpus[d], 512)
-                                labels['data'][pair_id][d] = {"rel": rel, "input_ids": input_ids}
+                        input_ids = self.process_text(self.queries['map'][str(query_id)] + "\n" +
+                                                                     "\n".join(
+                                                                         [self.corpus[cid] for cid in context_ids]) +
+                                                                     "[SEP]" + self.corpus[eval(dataset_node)],
+                                                                     512)
+                        labels['data'][pair_id][dataset_node] = {"rel": rel, "input_ids": input_ids}
 
                 else:
                     for dataset_node, rel in v.items():
@@ -320,21 +314,12 @@ class data_loader:
                             rel = 1
                         else:
                             rel = 0
-                        if self.mode == 'qc':
-                            input_ids = self.process_text(self.queries['map'][query_id] + "\n" +
-                                                          "\n".join(
-                                                              [self.corpus[cid] for cid in context_ids]) +
-                                                          "[SEP]" + self.corpus[eval(dataset_node)],
-                                                          512)
-                            labels['data'][pair_id][dataset_node] = {"rel": rel, "input_ids": input_ids}
-                        else:
-                            for c in context_ids:
-                                input_ids = self.process_text(self.queries['map'][query_id] + "[SEP]" + self.corpus[c],
-                                                              512)
-                                labels['data'][pair_id][str(c)] = {"rel": 1, "input_ids": input_ids}
-                            input_ids = self.process_text(
-                                self.queries['map'][query_id] + "[SEP]" + self.corpus[eval(dataset_node)], 512)
-                            labels['data'][pair_id][dataset_node] = {"rel": rel, "input_ids": input_ids}
+                        input_ids = self.process_text(self.queries['map'][str(query_id)] + "\n" +
+                                                      "\n".join(
+                                                          [self.corpus[cid] for cid in context_ids]) +
+                                                      "[SEP]" + self.corpus[eval(dataset_node)],
+                                                      512)
+                        labels['data'][pair_id][dataset_node] = {"rel": rel, "input_ids": input_ids}
 
                 labels['total'] += len(json_data)
                 pbar.update(1)

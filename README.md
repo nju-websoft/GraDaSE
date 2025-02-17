@@ -52,20 +52,34 @@ The retrieval results of BM25 are in the "./data/{test collection}/bm25_test.jso
 
 ## Code
 
-"code/" directory contains the implementation of GraDaSE.
+"code/" directory contains the implementation of GraDaSE. Before running the code, download and extract the data according to "data/README.md".
 
 ### Requirements
-Python==3.10.15
 
-Pytorch==2.4.0
+Before running the code, install the required libraries in the following order.
 
-Networkx==3.2.1
+python==3.10.15
 
-numpy==2.0.2
+torch==2.4.0+cu121
 
-dgl==2.4.0
+dgl==2.4.0+cu121
 
-scipy==1.14.1
+scikit-learn==1.5.2
+
+transformers==4.44.2
+
+rank_bm25==0.2.2
+
+pytrec_eval==0.5
+
+FlagEmbedding==1.3.3
+
+You can refer to the following commands to install the aforementioned packages:
+```
+pip install  torch==2.4.0 --index-url https://download.pytorch.org/whl/cu121
+pip install  dgl -f https://data.dgl.ai/wheels/torch-2.4/cu121/repo.html
+pip install  scikit-learn==1.5.2 transformers==4.44.2 rank_bm25==0.2.2 pytrec_eval==0.5 FlagEmbedding==1.3.3
+```
 
 ### Running experiments
 We train our model using NVIDIA GeForce RTX 4090 with CUDA 12.2.
