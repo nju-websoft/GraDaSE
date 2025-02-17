@@ -54,7 +54,7 @@ The retrieval results of BM25 are in the "./data/{test collection}/bm25_test.jso
 
 "code/" directory contains the implementation of GraDaSE. Before running the code, download and extract the data according to "data/README.md".
 
-Run the following commands in the project root "*GraDaSE*/" directory.
+Run the following commands in the project root "**GraDaSE**/" directory.
 ```
 cd data/
 wget https://zenodo.org/records/14876878/files/DataFinder-E.zip?download=1
