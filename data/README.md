@@ -2,6 +2,11 @@
 
 The data of DataFinder-E and DSEBench can be downloaded from [Zenodo](https://zenodo.org/records/14876878).
 
+```
+wget https://zenodo.org/records/14876878/files/DataFinder-E.zip?download=1
+wget https://zenodo.org/records/14876878/files/DSEBench.zip?download=1
+```
+
 The structure of the "data/"directory is as follows:
 ```
 data

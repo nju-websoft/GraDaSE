@@ -54,6 +54,15 @@ The retrieval results of BM25 are in the "./data/{test collection}/bm25_test.jso
 
 "code/" directory contains the implementation of GraDaSE. Before running the code, download and extract the data according to "data/README.md".
 
+Run the following commands in the project root "*GraDaSE*/" directory.
+```
+cd data/
+wget https://zenodo.org/records/14876878/files/DataFinder-E.zip?download=1
+wget https://zenodo.org/records/14876878/files/DSEBench.zip?download=1
+unzip DataFinder-E.zip
+unzip DSEBench.zip
+```
+
 ### Requirements
 
 Before running the code, install the required libraries in the following order.
@@ -87,12 +96,14 @@ We train our model using NVIDIA GeForce RTX 4090 with CUDA 12.2.
 For reranking on DataFinder-E:
 
 ```
+cd code/
 bash DataFinder.sh
 ```
 
 For reranking on DSEBench:
 
 ```
+cd code/
 bash DSEBench.sh
 ```
 
