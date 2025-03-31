@@ -150,7 +150,7 @@ def run_model_FAERY(args):
 
                     if dataset_id_pos not in targets_ids:
                         for c in targets_ids:
-                            paths = k_shortest_paths(nxg, dataset_id_pos, c, args.num_seqs, )
+                            paths = k_shortest_paths(nxg, dataset_id_pos, c, 25, )
                             # print(paths)
                             cd_seqs_pos.extend(paths)
                             for path in paths:
