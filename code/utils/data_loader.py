@@ -271,7 +271,8 @@ class data_loader:
             temp_num = 0
             for i, k in enumerate(list(json_data.keys())):
                 temp_num += 1
-                rerank_result = list(zip([i for i in range(len(bm25_results[i]))], scores[i:i + len(bm25_results[i])]))
+                rerank_result = list(zip([j for j in range(len(bm25_results[i]))],
+                                         scores[i*len(bm25_results[i]):i*len(bm25_results[i]) + len(bm25_results[i])]))
                 sorted_rerank_result = sorted(rerank_result, key=lambda x: x[1], reverse=True)[:self.top_k]
                 query_node_ids = []
                 for r in sorted_rerank_result:
