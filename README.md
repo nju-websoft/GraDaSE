@@ -1,6 +1,6 @@
 # GraDaSE: Graph-Based Dataset Search with Examples
 
-GraDaSE is agraph-based method for Dataset Search with Examples task.
+GraDaSE is a graph-based method for Dataset Search with Examples task.
 
 [//]: # (We provide the implementaion of GraDaSE based on the official PyTorch implementation of HGB&#40;https://github.com/THUDM/HGB&#41;)
 
